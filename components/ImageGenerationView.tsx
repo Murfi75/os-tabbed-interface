@@ -162,7 +162,7 @@ const ImageGenerationView: React.FC = () => {
         Используется модель: {geminiService.getImageGenModelName()}
       </p>
     </div>
-  );
+  ); 
 };
 
 export default ImageGenerationView;
