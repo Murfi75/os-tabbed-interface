@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ChatMessage, ChatSession, GeminiHistoryContent } from '../types';
 import { geminiService } from '../services/geminiService';
@@ -12,13 +13,109 @@ import {
 import { PlusCircleIcon, TrashIcon, XMarkIcon, Bars3Icon } from './icons/ChatActionIcons';
 import { ChatIcon as TabChatIcon } from './icons/TabIcons';
 
-
 const mapMessagesToHistory = (messages: ChatMessage[]): GeminiHistoryContent[] => {
   return messages.map(msg => ({
     role: msg.sender === 'user' ? 'user' : 'model',
     parts: [{ text: msg.text }]
   }));
 };
+
+interface ChatAreaInternalProps {
+  activeChatId: string | null;
+  currentChatMessages: ChatMessage[];
+  messagesEndRef: React.RefObject<HTMLDivElement>;
+  error: string | null; 
+  inputValue: string;
+  isSendingMessage: boolean;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSendMessage: () => Promise<void>;
+  onInputKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  NoActiveChatIcon: React.FC<React.SVGProps<SVGSVGElement>>;
+}
+
+const ChatAreaInternal: React.FC<ChatAreaInternalProps> = React.memo(({
+  activeChatId,
+  currentChatMessages,
+  messagesEndRef,
+  error,
+  inputValue,
+  isSendingMessage,
+  onInputChange,
+  onSendMessage,
+  onInputKeyPress,
+  NoActiveChatIcon
+}) => {
+  return (
+    <div className="flex flex-col h-full flex-grow">
+       {activeChatId ? (
+        <>
+          <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-200 dark:bg-slate-700/30 rounded-b-lg mb-4">
+            {currentChatMessages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`
+                    max-w-[80%] p-3 rounded-xl shadow
+                    ${msg.sender === 'user' ? 'bg-sky-600 text-white' : (msg.isError ? 'bg-red-500 dark:bg-red-700 text-white' : 'bg-slate-300 dark:bg-slate-600 text-slate-800 dark:text-slate-100')}
+                  `}
+                >
+                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  {msg.isLoading && msg.sender === 'ai' && (
+                    <div className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-300 opacity-75">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      typing...
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          {error && activeChatId && <p className="text-red-500 dark:text-red-400 text-xs mb-2 px-1" role="alert">{error}</p>}
+          <div className="flex items-center p-1 bg-slate-200 dark:bg-slate-700 rounded-lg mt-auto">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={onInputChange}
+              onKeyPress={onInputKeyPress}
+              placeholder="Type your message..."
+              className="flex-grow p-3 bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none"
+              disabled={isSendingMessage || !activeChatId}
+              aria-label="Chat input"
+            />
+            <button
+              onClick={onSendMessage}
+              disabled={isSendingMessage || !inputValue.trim() || !activeChatId}
+              className="p-3 bg-sky-600 text-white rounded-md hover:bg-sky-500 disabled:bg-slate-400 dark:disabled:bg-slate-500 disabled:cursor-not-allowed transition-colors duration-150"
+              aria-label="Send message"
+            >
+              {isSendingMessage ? (
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 transform rotate-90">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 16.571V11a1 1 0 112 0v5.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
+                </svg>
+              )}
+            </button>
+          </div>
+        </>
+       ) : (
+        <div className="flex-grow flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
+           <NoActiveChatIcon className="w-16 h-16 mb-4 text-slate-400 dark:text-slate-500" />
+          <p className="text-lg">No active chat.</p>
+          <p>Create a new chat or select one from the sidebar.</p>
+          {error && <p className="text-red-500 dark:text-red-400 text-sm mt-4 p-2 bg-red-200 dark:bg-red-900/30 rounded-md" role="alert">{error}</p>}
+        </div>
+       )}
+    </div>
+  );
+});
+
 
 const ChatView: React.FC = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -103,10 +200,10 @@ const ChatView: React.FC = () => {
       return;
     }
 
-    setIsSendingMessage(true);
+    setIsSendingMessage(true); // To avoid user input during re-initialization
     setError(null);
     try {
-      const history = mapMessagesToHistory(currentChatMessages.filter(m => !m.isError && !m.isLoading)); // Only send valid, completed messages as history
+      const history = mapMessagesToHistory(currentChatMessages.filter(m => !m.isError && !m.isLoading));
       chatSessionRef.current = geminiService.initChatWithHistory(
         currentSession.modelId,
         history,
@@ -116,19 +213,13 @@ const ChatView: React.FC = () => {
       console.error("Failed to initialize chat session:", e);
       const errorMessage = e.message || "Could not initialize chat. API key might be missing, invalid, or the model is unavailable.";
       setError(errorMessage);
-      setAllMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        chatId: activeChatId,
-        text: `Error: ${errorMessage}`,
-        sender: 'ai',
-        timestamp: new Date(),
-        isError: true,
-      }]);
+      // Don't add error message to chat here as it might overwrite user messages if re-init fails.
+      // The 'error' state will be displayed.
     } finally {
       setIsSendingMessage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeChatId, chatSessions]);
+  }, [activeChatId, chatSessions]); // Note: currentChatMessages removed from deps to avoid re-init on new message
 
 
   const handleCreateNewChat = useCallback(() => {
@@ -198,6 +289,7 @@ const ChatView: React.FC = () => {
         ).sort((a,b) => b.lastActivityAt - a.lastActivityAt)
     );
 
+    const textToSend = inputValue.trim();
     setInputValue('');
     setIsSendingMessage(true);
     setError(null);
@@ -215,7 +307,7 @@ const ChatView: React.FC = () => {
     try {
       await geminiService.streamMessage(
         chatSessionRef.current,
-        userMessage.text,
+        textToSend,
         (chunkText) => {
           setAllMessages(prev => prev.map(msg => 
             msg.id === aiMessageId 
@@ -225,10 +317,11 @@ const ChatView: React.FC = () => {
         },
         (err) => {
           console.error("Streaming error:", err);
-          setError(err.message || "An error occurred while fetching response.");
+          const errorMessage = err.message || "An error occurred while fetching response.";
+          setError(errorMessage);
           setAllMessages(prev => prev.map(msg => 
             msg.id === aiMessageId 
-            ? { ...msg, text: `Error: ${err.message || "Could not get response."}`, isLoading: false, isError: true }
+            ? { ...msg, text: `Error: ${errorMessage}`, isLoading: false, isError: true }
             : msg
           ));
           setIsSendingMessage(false);
@@ -253,79 +346,18 @@ const ChatView: React.FC = () => {
       ));
       setIsSendingMessage(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue, isSendingMessage, activeChatId, chatSessionRef.current]);
+  }, [inputValue, isSendingMessage, activeChatId, chatSessionRef]);
 
 
-  const ChatArea = () => (
-    <div className="flex flex-col h-full flex-grow">
-       {activeChatId ? (
-        <>
-          <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-200 dark:bg-slate-700/30 rounded-b-lg mb-4">
-            {currentChatMessages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`
-                    max-w-[80%] p-3 rounded-xl shadow
-                    ${msg.sender === 'user' ? 'bg-sky-600 text-white' : (msg.isError ? 'bg-red-500 dark:bg-red-700 text-white' : 'bg-slate-300 dark:bg-slate-600 text-slate-800 dark:text-slate-100')}
-                  `}
-                >
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
-                  {msg.isLoading && msg.sender === 'ai' && (
-                    <div className="mt-1 flex items-center text-xs text-slate-500 dark:text-slate-300 opacity-75">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      typing...
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          {error && activeChatId && <p className="text-red-500 dark:text-red-400 text-xs mb-2 px-1" role="alert">{error}</p>}
-          <div className="flex items-center p-1 bg-slate-200 dark:bg-slate-700 rounded-lg mt-auto">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !isSendingMessage && inputValue.trim() && handleSendMessage()}
-              placeholder="Type your message..."
-              className="flex-grow p-3 bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none"
-              disabled={isSendingMessage || !activeChatId}
-              aria-label="Chat input"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={isSendingMessage || !inputValue.trim() || !activeChatId}
-              className="p-3 bg-sky-600 text-white rounded-md hover:bg-sky-500 disabled:bg-slate-400 dark:disabled:bg-slate-500 disabled:cursor-not-allowed transition-colors duration-150"
-              aria-label="Send message"
-            >
-              {isSendingMessage && currentChatMessages.some(m=>m.isLoading && m.sender==='ai') ? (
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 transform rotate-90">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 16.571V11a1 1 0 112 0v5.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path>
-                </svg>
-              )}
-            </button>
-          </div>
-        </>
-       ) : (
-        <div className="flex-grow flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-           <TabChatIcon className="w-16 h-16 mb-4 text-slate-400 dark:text-slate-500" />
-          <p className="text-lg">No active chat.</p>
-          <p>Create a new chat or select one from the sidebar.</p>
-          {error && <p className="text-red-500 dark:text-red-400 text-sm mt-4 p-2 bg-red-200 dark:bg-red-900/30 rounded-md" role="alert">{error}</p>}
-        </div>
-       )}
-    </div>
-  );
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !isSendingMessage && inputValue.trim()) {
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="flex h-full max-h-[calc(100vh-12rem)] sm:max-h-[calc(100vh-14rem)] text-sm text-slate-800 dark:text-slate-100">
@@ -345,7 +377,7 @@ const ChatView: React.FC = () => {
       `}>
         <button
           onClick={handleCreateNewChat}
-          disabled={isSendingMessage && !activeChatId}
+          disabled={isSendingMessage && !activeChatId} // Consider if this should be just `isSendingMessage`
           className="w-full flex items-center justify-center px-3 py-2 mb-3 text-sm bg-sky-600 text-white rounded-md hover:bg-sky-500 disabled:bg-slate-400 dark:disabled:bg-slate-500 transition-colors duration-150"
           aria-label="Start a new chat session"
         >
@@ -359,7 +391,7 @@ const ChatView: React.FC = () => {
             id="model-select"
             value={selectedModelForNewChat}
             onChange={(e) => setSelectedModelForNewChat(e.target.value)}
-            disabled={isSendingMessage && !activeChatId}
+            disabled={isSendingMessage && !activeChatId} // Consider this disabled condition
             className="w-full p-2 text-xs bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 appearance-none custom-select-arrow border border-slate-300 dark:border-slate-500"
             aria-label="Select chat model for new chats"
           >
@@ -403,7 +435,18 @@ const ChatView: React.FC = () => {
       </div>
 
       <div className={`flex-grow flex flex-col overflow-hidden p-0 md:p-3 transition-all duration-300 ease-in-out ${isSidebarOpen && window.innerWidth < 768 ? 'ml-64' : 'ml-0'} md:ml-0`}>
-         <ChatArea />
+         <ChatAreaInternal
+            activeChatId={activeChatId}
+            currentChatMessages={currentChatMessages}
+            messagesEndRef={messagesEndRef}
+            error={error}
+            inputValue={inputValue}
+            isSendingMessage={isSendingMessage}
+            onInputChange={handleInputChange}
+            onSendMessage={handleSendMessage}
+            onInputKeyPress={handleInputKeyPress}
+            NoActiveChatIcon={TabChatIcon}
+         />
       </div>
     </div>
   );
