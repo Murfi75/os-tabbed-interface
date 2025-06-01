@@ -1,0 +1,6 @@
+{
+  "name": "OS Tabbed Interface",
+  "description": "A web application mimicking an operating system interface with tabbed applications: Chat, Calculator, and Actions. Features a Gemini-powered chat, a functional calculator, and a simple to-do list.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
